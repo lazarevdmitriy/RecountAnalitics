@@ -1,0 +1,113 @@
+{
+  "script": {
+    "lang": "mustache",
+    "source": {
+      "size": 1000,
+      "sort": [
+        {
+          "@timestamp": {
+            "order": "asc",
+            "format": "strict_date_optional_time_nanos"
+          }
+        }
+      ],
+      "query": {
+        "bool": {
+          "must": [],
+          "filter": [
+            {
+              "bool": {
+                "should": [
+                  {
+                    "bool": {
+                      "filter": [
+                        {
+                          "bool": {
+                            "should": [
+                              {
+                                "match": {
+                                  "direction": "in"
+                                }
+                              }
+                            ],
+                            "minimum_should_match": 1
+                          }
+                        },
+                        {
+                          "bool": {
+                            "should": [
+                              {
+                                "match_phrase": {
+                                  "srcAnnotation": "{{word}}"
+                                }
+                              }
+                            ],
+                            "minimum_should_match": 1
+                          }
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "bool": {
+                      "filter": [
+                        {
+                          "bool": {
+                            "should": [
+                              {
+                                "match": {
+                                  "direction": "out"
+                                }
+                              }
+                            ],
+                            "minimum_should_match": 1
+                          }
+                        },
+                        {
+                          "bool": {
+                            "should": [
+                              {
+                                "match_phrase": {
+                                  "dstAnnotation": "{{word}}"
+                                }
+                              }
+                            ],
+                            "minimum_should_match": 1
+                          }
+                        }
+                      ]
+                    }
+                  }
+                ],
+                "minimum_should_match": 1
+              }
+            },
+            {
+              "range": {
+                "@timestamp": {
+                  "format": "strict_date_optional_time",
+                  "gte": "{{gte}}",
+                  "lte": "{{lte}}",
+                  "time_zone": "Europe/Moscow"
+                }
+              }
+            },
+            {
+              "match_phrase": {
+                "dataset_id": "{{dataset_id}}"
+              }
+            }
+          ],
+          "should": [],
+          "must_not": []
+        }
+      }
+    },
+    "params": {
+      "word": "поиск в речи клиента датасет 70",
+      "dataset_id": "70",
+      "gte": "2021-05-31T21:00:00.000Z",
+      "lte": "2022-06-01T03:02:40.817Z"
+    }
+  }
+}
