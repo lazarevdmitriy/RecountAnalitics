@@ -248,6 +248,7 @@ def main():
     # close connection
     cursor.close()
     mydb.close()
+    print("OK")
 
 def create_index():
 
