@@ -26,30 +26,27 @@ get_words = """ SELECT * FROM phone_cdr_tag_words WHERE tag_id = '%s' """
 
 add_words = ("INSERT IGNORE INTO interaction_words "
 "(interactionID,word_id,counter,interactionDate,dataset_id,isManager,word_count) "
-"VALUES ('{}', {}, {}, '{}', {}, {}, {})")
+"VALUES ('%s', %s, %s, '%s', %s, %s, %s)")
 
 add_tags = ("INSERT IGNORE INTO interaction_tags "
 "(interactionID,tag_id,counter,interactionDate,dataset_id,isManager) "
-"VALUES ('{}', {}, {}, '{}', {}, {})")
+"VALUES ('%s', %s, %s, '%s', %s, %s)")
 
-add_scripts_soft = """   INSERT IGNORE INTO interaction_scripts ( interactionID, script_id, interactionDate, dataset_id, successful )
-  SELECT interaction_tags.interactionID,
-         phone_cdr_script_tags.script_id,
-         interaction_tags.interactionDate,
-         interaction_tags.dataset_id,
-		 ( count(distinct pcsta.tag_id) = count(distinct ita.tag_id) AND count(distinct pcstc.tag_id) = count(distinct itc.tag_id) )
+add_scripts_soft = """ INSERT IGNORE INTO interaction_scripts ( interactionID, script_id, interactionDate, dataset_id, successful )
+  SELECT interaction_tags.interactionID, phone_cdr_script_tags.script_id, interaction_tags.interactionDate, interaction_tags.dataset_id, 
+  (count(distinct pcsta.tag_id) = count(distinct ita.tag_id) AND count(distinct pcstc.tag_id) = count(distinct itc.tag_id))
   FROM interaction_tags
   LEFT JOIN phone_cdr_script_tags ON interaction_tags.tag_id = phone_cdr_script_tags.tag_id
   LEFT JOIN phone_cdr_scripts ON phone_cdr_scripts.id = phone_cdr_script_tags.script_id
-                             AND ifnull(phone_cdr_scripts.dataset_id,0) = ifnull(interaction_tags.dataset_id,0)
+  AND ifnull(phone_cdr_scripts.dataset_id,0) = ifnull(interaction_tags.dataset_id,0)
   LEFT JOIN phone_cdr_script_tags AS pcstc ON pcstc.script_id = phone_cdr_script_tags.script_id
-										  AND pcstc.isManager = 0
+  AND pcstc.isManager = 0
   LEFT JOIN phone_cdr_script_tags AS pcsta ON pcsta.script_id = phone_cdr_script_tags.script_id
-										  AND pcsta.isManager = 1
+  AND pcsta.isManager = 1
   LEFT JOIN interaction_tags as itc ON itc.interactionID = interaction_tags.interactionID
-                                  AND itc.tag_id = pcstc.tag_id
+  AND itc.tag_id = pcstc.tag_id
   LEFT JOIN interaction_tags as ita ON ita.interactionID = interaction_tags.interactionID
-                                  AND ita.tag_id = pcsta.tag_id
+  AND ita.tag_id = pcsta.tag_id
   WHERE phone_cdr_script_tags.tagType = 1
     AND phone_cdr_script_tags.tag_id IS NOT NULL
     AND phone_cdr_scripts.id IS NOT NULL
@@ -59,25 +56,22 @@ add_scripts_soft = """   INSERT IGNORE INTO interaction_scripts ( interactionID,
   	GROUP BY phone_cdr_script_tags.script_id, interaction_tags.interactionID
  """
 
-add_scripts_hard = """  INSERT IGNORE INTO interaction_scripts ( interactionID, script_id, interactionDate, dataset_id, successful )
-  SELECT interaction_tags.interactionID,
-         phone_cdr_script_tags.script_id,
-         interaction_tags.interactionDate,
-         interaction_tags.dataset_id,
-		 ( group_concat(distinct pcsta.tag_id order by pcsta.id) = group_concat(distinct ita.tag_id) AND
-           group_concat(distinct pcstc.tag_id order by pcstc.id) = group_concat(distinct itc.tag_id) )
+add_scripts_hard = """ INSERT IGNORE INTO interaction_scripts ( interactionID, script_id, interactionDate, dataset_id, successful )
+  SELECT interaction_tags.interactionID, phone_cdr_script_tags.script_id, interaction_tags.interactionDate, interaction_tags.dataset_id,
+  ( group_concat(distinct pcsta.tag_id order by pcsta.id) = group_concat(distinct ita.tag_id) AND 
+  group_concat(distinct pcstc.tag_id order by pcstc.id) = group_concat(distinct itc.tag_id) )
   FROM interaction_tags
   LEFT JOIN phone_cdr_script_tags ON interaction_tags.tag_id = phone_cdr_script_tags.tag_id
   LEFT JOIN phone_cdr_scripts ON phone_cdr_scripts.id = phone_cdr_script_tags.script_id
-                             AND ifnull(phone_cdr_scripts.dataset_id,0) = ifnull(interaction_tags.dataset_id,0)
+  AND ifnull(phone_cdr_scripts.dataset_id,0) = ifnull(interaction_tags.dataset_id,0)
   LEFT JOIN phone_cdr_script_tags AS pcstc ON pcstc.script_id = phone_cdr_script_tags.script_id
-										  AND pcstc.isManager = 0
+  AND pcstc.isManager = 0
   LEFT JOIN phone_cdr_script_tags AS pcsta ON pcsta.script_id = phone_cdr_script_tags.script_id
-										  AND pcsta.isManager = 1
+  AND pcsta.isManager = 1
   LEFT JOIN interaction_tags as itc ON itc.interactionID = interaction_tags.interactionID
-                                  AND itc.tag_id = pcstc.tag_id
+  AND itc.tag_id = pcstc.tag_id
   LEFT JOIN interaction_tags as ita ON ita.interactionID = interaction_tags.interactionID
-                                  AND ita.tag_id = pcsta.tag_id
+  AND ita.tag_id = pcsta.tag_id
   WHERE phone_cdr_script_tags.tagType = 1
     AND phone_cdr_script_tags.tag_id IS NOT NULL
     AND phone_cdr_scripts.id IS NOT NULL
@@ -86,24 +80,20 @@ add_scripts_hard = """  INSERT IGNORE INTO interaction_scripts ( interactionID, 
     AND interaction_tags.interactionDate <= '%s'
   GROUP BY phone_cdr_script_tags.script_id, interaction_tags.interactionID
   HAVING  ( group_concat(distinct pcsta.tag_id order by pcsta.id) = group_concat(distinct ita.tag_id) AND
-            group_concat(distinct pcstc.tag_id order by pcstc.id) = group_concat(distinct itc.tag_id) ) IS NOT NULL
+  group_concat(distinct pcstc.tag_id order by pcstc.id) = group_concat(distinct itc.tag_id) ) IS NOT NULL
 """
 
-load_query = ("""
-    SELECT
-      interactionID,
-      srcAnnotation,
-      dstAnnotation,
-      calldate as '@timestamp',
-      dataset_id,
-      IF(dst = isManager, 'in', 'out') as direction
-    FROM
-      phone_cdr
-    WHERE
-        date(calldate) BETWEEN '%s' AND '%s'
-    GROUP BY
-      interactionID;
-        """)
+load_query = """
+SELECT interactionID, dataset_id, calldate as '@timestamp', IF(dst = isManager, 'in', 'out') as direction,
+    srcAnnotation, dstAnnotation
+FROM
+    voicetech_dev.phone_cdr pc
+WHERE
+    date(calldate) BETWEEN '%s' AND '%s'
+    AND interactionID != ''
+GROUP BY
+    interactionID;
+        """
 
 def fetch(query) :
     list = []
@@ -146,7 +136,7 @@ def insert(result, isManager, tag_id, word_id):
     if result['hits']['total']['value']:
         for hit in result['hits']['hits']:
             interactionID = hit["_source"]['interactionID']
-            interactionDate = datetime.fromisoformat(hit["_source"]['@timestamp'])
+            interactionDate = datetime.strptime(hit["_source"]['@timestamp'], "%Y-%m-%dT%H:%M:%S")
             dataset_id = hit["_source"]['dataset_id']
             counter = 1
             word_count = 1
@@ -155,8 +145,8 @@ def insert(result, isManager, tag_id, word_id):
                 dataset_id = 'NULL'
 
             print(f"{interactionID}\t{interactionDate}\t{dataset_id}")
-            cursor.execute(add_tags.format(interactionID,tag_id,counter,interactionDate,dataset_id,isManager))
-            cursor.execute(add_words.format(interactionID, word_id ,counter,interactionDate,dataset_id,isManager,word_count))
+            cursor.execute(add_tags % (interactionID,tag_id,counter,interactionDate,dataset_id,isManager))
+            cursor.execute(add_words % (interactionID, word_id ,counter,interactionDate,dataset_id,isManager,word_count))
             mydb.commit()
 
 def clear_by_date(from_date, to_date):
@@ -168,11 +158,10 @@ def clear_by_date(from_date, to_date):
   cursor.execute(delete_script)
   mydb.commit()
 
-def load(index):
-    days_delta = datetime.now()-timedelta(days=elconfig['load_days'])
-    start_load = datetime.combine(days_delta, datetime.min.time())
+def load(index, mydb):
     print(f"LOAD DAYS: \t{start_load}\t{to_date}\n")
     print("Load data from mysql")
+    cursor = mydb.cursor(dictionary=True)
     cursor.execute(load_query % (start_load, to_date))
     row = cursor.fetchone()
     while row is not None:
@@ -181,6 +170,7 @@ def load(index):
             resp = es.index(index=index, id=row['interactionID'], document=row)
             print(resp['result'], row['interactionID'], row['@timestamp'])
         row = cursor.fetchone()
+    cursor.close()
 
 def main():
     """
@@ -250,15 +240,16 @@ def main():
     mydb.close()
     print("OK")
 
-def create_index():
+def create_index(index):
 
-  with open("templates/mappings.json") as f:
+  try:
+    with open("templates/mappings.json") as f:
         mappings = json.load(f)
-
-  resp =  es.options(ignore_status=[400]).indices.create(
-    index="q", mappings=mappings["mappings"]
-    )
-  # print(resp)
+    resp =  es.options(ignore_status=[400]).indices.create(
+    index=index, mappings=mappings["mappings"])
+  except Exception as e:
+      print(e)
+      sys.exit()
 
 def put_templates(es):
   # open and load script templates from disk
@@ -278,27 +269,32 @@ def put_templates(es):
   except Exception as e:
     print(e)
     sys.exit()
-  # print(es.get_script(id="search_in_client_speech_dataset_default"))
 
 if __name__ == '__main__':
 
-    with open("/opt/voicetech/config/mysql.conf") as f:
-        config = json.load(f)
-    with open("/opt/voicetech/config/elasticsearch.conf") as f:
-        elconfig = json.load(f)
+    try:
+        with open("/opt/voicetech/config/mysql.conf") as f:
+            config = json.load(f)
+        with open("/opt/voicetech/config/elasticsearch.conf") as f:
+            elconfig = json.load(f)
+    except Exception as e:
+        print(e)
+        sys.exit()
 
     if len(sys.argv) == 1:
         # load default date period from config
         days_delta = datetime.now()-timedelta(days=elconfig['recount_days'])
         from_date = datetime.combine(days_delta, datetime.min.time())
         to_date = datetime.combine(date.today(), datetime.max.time())
+        start_load = datetime.combine(datetime.now()-timedelta(days=elconfig['load_days']), datetime.min.time())
     elif len(sys.argv) == 3:
         # get date period from stdin
-        from_date = datetime.fromisoformat(sys.argv[1])
-        to_date = datetime.combine(datetime.fromisoformat(sys.argv[2]), datetime.max.time())
+        from_date = datetime.strptime(sys.argv[1], "%Y-%m-%d")
+        to_date = datetime.combine(datetime.strptime(sys.argv[2], "%Y-%m-%d"), datetime.max.time())
+        start_load = from_date
     else:
       print("You didn't give arguments!\
-        Examle: ./loadData.py '2022-06-01' '2022-07-01'")
+        Examle: ./insertData.py '2022-06-01' '2022-07-01'")
       sys.exit()
 
     print(f"RECOUNT DAYS: \t{from_date}\t{to_date}")
@@ -327,7 +323,7 @@ if __name__ == '__main__':
         # ssl_show_warn=False
     )
 
-    create_index()
+    create_index(elconfig['elastic_index'])
     put_templates(es)
-    load(elconfig['elastic_index'])
+    load(elconfig['elastic_index'], mydb)
     main()
