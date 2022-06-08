@@ -15,8 +15,8 @@ from elasticsearch import Elasticsearch
 from datetime import date, datetime, timedelta
 
 delete_script = "TRUNCATE TABLE interaction_scripts "
-delete_tags = "TRUNCATE TABLE interaction_tags" 
-delete_words = "TRUNCATE TABLE interaction_words" 
+delete_tags = "TRUNCATE TABLE interaction_tags"
+delete_words = "TRUNCATE TABLE interaction_words"
 
 get_scripts = """ SELECT pcs.id, pcs.name, pcs.dataset_id, pcs.scriptType, pcst.tag_id, pcst.script_id, pcst.isManager
     FROM phone_cdr_scripts pcs left join phone_cdr_script_tags pcst  on pcs.id  = pcst.script_id   """
@@ -33,7 +33,7 @@ add_tags = ("INSERT IGNORE INTO interaction_tags "
 "VALUES ('%s', %s, %s, '%s', %s, %s)")
 
 add_scripts_soft = """ INSERT IGNORE INTO interaction_scripts ( interactionID, script_id, interactionDate, dataset_id, successful )
-  SELECT interaction_tags.interactionID, phone_cdr_script_tags.script_id, interaction_tags.interactionDate, interaction_tags.dataset_id, 
+  SELECT interaction_tags.interactionID, phone_cdr_script_tags.script_id, interaction_tags.interactionDate, interaction_tags.dataset_id,
   (count(distinct pcsta.tag_id) = count(distinct ita.tag_id) AND count(distinct pcstc.tag_id) = count(distinct itc.tag_id))
   FROM interaction_tags
   LEFT JOIN phone_cdr_script_tags ON interaction_tags.tag_id = phone_cdr_script_tags.tag_id
@@ -58,7 +58,7 @@ add_scripts_soft = """ INSERT IGNORE INTO interaction_scripts ( interactionID, s
 
 add_scripts_hard = """ INSERT IGNORE INTO interaction_scripts ( interactionID, script_id, interactionDate, dataset_id, successful )
   SELECT interaction_tags.interactionID, phone_cdr_script_tags.script_id, interaction_tags.interactionDate, interaction_tags.dataset_id,
-  ( group_concat(distinct pcsta.tag_id order by pcsta.id) = group_concat(distinct ita.tag_id) AND 
+  ( group_concat(distinct pcsta.tag_id order by pcsta.id) = group_concat(distinct ita.tag_id) AND
   group_concat(distinct pcstc.tag_id order by pcstc.id) = group_concat(distinct itc.tag_id) )
   FROM interaction_tags
   LEFT JOIN phone_cdr_script_tags ON interaction_tags.tag_id = phone_cdr_script_tags.tag_id
@@ -87,7 +87,7 @@ load_query = """
 SELECT interactionID, dataset_id, calldate as '@timestamp', IF(dst = isManager, 'in', 'out') as direction,
     srcAnnotation, dstAnnotation
 FROM
-    voicetech_dev.phone_cdr pc
+    phone_cdr pc
 WHERE
     date(calldate) BETWEEN '%s' AND '%s'
     AND interactionID != ''
@@ -178,7 +178,7 @@ def main():
     tags(маркеры) - phone_cdr_tags содержит набор слов
      - words(слова) - phone_cdr_tag_words
     """
-    
+
     clear_by_date(from_date, to_date)
     scripts = fetch(get_scripts)
     # {'id': 13, 'name': 'Упоминание каналов самообслуживания', 'dataset_id': 70, 'scriptType': 'strictScript', 'tag_id': 155, 'script_id': 13, 'isManager': 1}
@@ -225,7 +225,7 @@ def main():
 
             resp=es.search_template(index=elconfig['elastic_index'], id=templete_script, params=params)
             # print(resp)
-            if resp['hits']['total']['value']: 
+            if resp['hits']['total']['value']:
               print(f"\nSCRIPT: '{ script_name }'\tTAG: '{ tag['name'] }'\tWORD: '{ word['word'] }'\t MATCH: {resp['hits']['total']['value']}\n")
               insert(resp, isManager, tag_id, word_id)
 
@@ -300,12 +300,12 @@ if __name__ == '__main__':
     print(f"RECOUNT DAYS: \t{from_date}\t{to_date}")
 
     mydb = mysql.connector.connect(
-        host=config['host'], 
-        user=config['user'], 
-        passwd=config['pass'], 
-        db=config['base'], 
-        charset='utf8', 
-        collation='utf8_general_ci' 
+        host=config['host'],
+        user=config['user'],
+        passwd=config['pass'],
+        db=config['base'],
+        charset='utf8',
+        collation='utf8_general_ci'
     )
     cursor = mydb.cursor(dictionary=True)
     es = Elasticsearch(
