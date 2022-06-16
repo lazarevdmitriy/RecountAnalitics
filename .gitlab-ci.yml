@@ -12,7 +12,8 @@ composer-test:
     - apt update && apt install gettext curl -y
   script:
     - docker-compose up -d
-    - sleep 30
+    - sleep 1m
+    - docker ps
     - curl http://localhost:9200/_cat/health
     
 staging:
