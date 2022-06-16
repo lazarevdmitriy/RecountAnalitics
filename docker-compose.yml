@@ -41,8 +41,3 @@ volumes:
     driver: local
   kibanadata:
     driver: local
-
-networks:
-  proxynet:
-    driver: 'bridge'
-    name: 'mongodb_network_1'
