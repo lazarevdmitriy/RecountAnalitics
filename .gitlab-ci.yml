@@ -13,9 +13,10 @@ composer-test:
   script:
     - docker-compose up -d
     # - sleep 30
-    - curl http://elasticsearch:9200/_cat/health
+    
     - docker logs elasticsearch
     - ss -tulpan | grep 9200
+    - curl http://elasticsearch:9200/_cat/health
     
 staging:
   stage: staging
