@@ -95,6 +95,17 @@ GROUP BY
     interactionID;
         """
 
+class bcolors:
+    HEADER = '\033[95m'
+    OKBLUE = '\033[94m'
+    OKCYAN = '\033[96m'
+    OKGREEN = '\033[92m'
+    WARNING = '\033[93m'
+    FAIL = '\033[91m'
+    ENDC = '\033[0m'
+    BOLD = '\033[1m'
+    UNDERLINE = '\033[4m'
+
 def fetch(query) :
     list = []
     cursor.execute(query)
@@ -104,50 +115,27 @@ def fetch(query) :
        row = cursor.fetchone()
     return list
 
-def elastic_search(query):
-
-    # get pit
-    pit = requests.post(f'{elastic_host}/{INDEX}/_pit?keep_alive=1m').json()
-
-    # первый запрос
-    result = es.search(size=size, query=query, pit=pit, sort=sort)
-    total = result['hits']['total']['value']
-
-    if total:
-        # последняя позиция
-        search_after=result['hits']['hits'][-1]['sort']
-
-        # постраничный поиск
-        i=1
-        while i < total:
-            i+=1
-            r = es.search(size=size, query=query, pit=pit, sort=sort, search_after=search_after)
-            for hit in r['hits']['hits']:
-                result['hits']['hits'].append( hit )
-                search_after = hit['sort']
-
-    # delete _pit
-    requests.delete(f'{elastic_host}/_pit', headers={'Content-Type':'application/json'}, json={"id": pit} )
-
-    return result
-
 def insert(result, isManager, tag_id, word_id):
 
-    if result['hits']['total']['value']:
-        for hit in result['hits']['hits']:
-            interactionID = hit["_source"]['interactionID']
-            interactionDate = datetime.strptime(hit["_source"]['@timestamp'], "%Y-%m-%dT%H:%M:%S")
-            dataset_id = hit["_source"]['dataset_id']
-            counter = 1
-            word_count = 1
+    # print(f"result['hits']['total']['value']:  {result['hits']['total']['value']}")
+    # if result['hits']['total']['value']:
+    x = 0
+    for hit in result['hits']['hits']:
+        x = x+1
+        # print(f"HIT: {hit}")
+        interactionID = hit["_source"]['interactionID']
+        interactionDate = datetime.strptime(hit["_source"]['@timestamp'], "%Y-%m-%dT%H:%M:%S")
+        dataset_id = hit["_source"]['dataset_id']
+        counter = 1
+        word_count = 1
 
-            if dataset_id == None or dataset_id == 'None' or dataset_id == 0:
-                dataset_id = 'NULL'
-
-            print(f"{interactionID}\t{interactionDate}\t{dataset_id}")
-            cursor.execute(add_tags % (interactionID,tag_id,counter,interactionDate,dataset_id,isManager))
-            cursor.execute(add_words % (interactionID, word_id ,counter,interactionDate,dataset_id,isManager,word_count))
-            mydb.commit()
+        if dataset_id == None or dataset_id == 'None' or dataset_id == 0:
+            dataset_id = 'NULL'
+        print(f"{x}:\t {bcolors.OKGREEN}INSERTED: {interactionID}\t{interactionDate}\t{dataset_id}{bcolors.ENDC} ")
+        # print(f"{x}:\tINSERTED: {interactionID}\t{interactionDate}\t{dataset_id}")
+        cursor.execute(add_tags % (interactionID,tag_id,counter,interactionDate,dataset_id,isManager))
+        cursor.execute(add_words % (interactionID, word_id ,counter,interactionDate,dataset_id,isManager,word_count))
+        mydb.commit()
 
 def clear_by_date(from_date, to_date):
 
@@ -179,7 +167,6 @@ def main():
      - words(слова) - phone_cdr_tag_words
     """
 
-    clear_by_date(from_date, to_date)
     scripts = fetch(get_scripts)
     # {'id': 13, 'name': 'Упоминание каналов самообслуживания', 'dataset_id': 70, 'scriptType': 'strictScript', 'tag_id': 155, 'script_id': 13, 'isManager': 1}
     tags = fetch(get_tags)
@@ -216,18 +203,55 @@ def main():
                 templete_script="search_in_operator_speech_dataset_default"
                 if dataset_id != None: templete_script="search_in_operator_speech_dataset_exists"
 
-            params={
+
+            _from = 0
+            _size = 100
+            params= {
+                "from": _from,
+                "size": _size,
                 "word": word_word,
                 "dataset_id": dataset_id,
                 "gte": from_date.isoformat(),
                 "lte": to_date.isoformat()
-              }
+            }
+            # print(f'params {params}')
 
+            # get 1st
             resp=es.search_template(index=elconfig['elastic_index'], id=templete_script, params=params)
+            # print(f'WORD: {word_word} 1st resp {resp}')
+            # get total results count
+            _total = resp['hits']['total']['value']
+
+            # iterate throgh results
+            steps = int(-1 * (_total / _size) // 1 * -1)
+
+            # print(f'WORD: {word_word} total results found {_total} size {_size} steps {steps}')
+
             # print(resp)
-            if resp['hits']['total']['value']:
-              print(f"\nSCRIPT: '{ script_name }'\tTAG: '{ tag['name'] }'\tWORD: '{ word['word'] }'\t MATCH: {resp['hits']['total']['value']}\n")
-              insert(resp, isManager, tag_id, word_id)
+            if _total:
+                print(f"{bcolors.BOLD}\nSCRIPT: '{ script_name }'\tTAG: '{ tag['name'] }'\tWORD: '{ word['word'] }'\t MATCH: {_total} \t STEPS: {steps}\n {bcolors.ENDC}")
+            # print(resp['hits']['hits'])
+            # sprint(f"{bcolors.WARNING}Warning: No active frommets remain. Continue?{bcolors.ENDC}")
+
+
+                for x in range(0,steps):
+                    # print(f"x: {x} in steps {steps}\t FROM: {params['from']} size {_size} ")
+                    # get search
+                    # print(f"params: {params}")
+                    resp=es.search_template(index=elconfig['elastic_index'], id=templete_script, params=params)
+
+                    # insert
+                    # print(f"INSERT WORD: {word_word}")
+                    insert(resp, isManager, tag_id, word_id)
+
+                    # increase from
+                    _from = _from+_size
+                    params["from"]= _from
+
+
+
+
+
 
     # insert scripts
     cursor.execute(add_scripts_hard % (from_date, to_date))
@@ -238,7 +262,7 @@ def main():
     # close connection
     cursor.close()
     mydb.close()
-    print("OK")
+    print(f"{bcolors.OKGREEN}\n[ OK ]\n{bcolors.ENDC}")
 
 def create_index(index):
 
@@ -323,6 +347,7 @@ if __name__ == '__main__':
         # ssl_show_warn=False
     )
 
+    clear_by_date(from_date, to_date)
     create_index(elconfig['elastic_index'])
     put_templates(es)
     load(elconfig['elastic_index'], mydb)
