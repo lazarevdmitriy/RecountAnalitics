@@ -12,8 +12,8 @@ composer-test:
     - apt update && apt install gettext curl -y
   script:
     - docker-compose up -d
-    - sleep 30
-    - curl http://localhost:9200/_cat/health
+    # - sleep 30
+    - curl http://elasticsearch:9200/_cat/health
     - docker logs elasticsearch
     - ss -tulpan | grep 9200
     
