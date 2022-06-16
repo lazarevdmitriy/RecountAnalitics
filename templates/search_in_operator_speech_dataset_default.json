@@ -2,7 +2,9 @@
   "script": {
     "lang": "mustache",
     "source": {
-      "size": 1000,
+      "_source": ["@timestamp", "interactionID", "dataset_id"],
+      "from": "{{from}}",
+      "size": "{{size}}",
       "sort": [
         {
           "@timestamp": {
@@ -104,9 +106,7 @@
       }
     },
     "params": {
-      "word": "поиск в речи оператора датасет NULL",
-      "gte": "2021-05-31T21:00:00.000Z",
-      "lte": "2022-06-01T07:51:54.575Z"
+      "word": "поиск в речи оператора датасет NULL"
     }
   }
 }
