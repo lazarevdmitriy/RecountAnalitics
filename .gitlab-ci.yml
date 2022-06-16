@@ -13,7 +13,7 @@ composer-test:
   script:
     - docker-compose up -d
     - sleep 1m
-    - docker ps
+    - docker logs elasticsearch
     - curl http://localhost:9200/_cat/health
     
 staging:
