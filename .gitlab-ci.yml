@@ -1,0 +1,33 @@
+stages:
+  - test
+  - staging
+
+build-image:
+  stage: test
+  image: 
+    name: linuxserver/docker-compose
+    # entrypoint: ["/bin/bash", "-c"]
+  tags: ["docker"]
+  before_script:
+    - apt update && apt install gettext curl -y
+  script:
+    - echo $CI_REGISTRY_PASSWORD | docker login -u $CI_REGISTRY_USER $CI_REGISTRY --password-stdin
+    - envsubst < templates/docker-compose.yml > docker-compose.yml
+    - docker-compose up -d 
+    - curl http://localhost:9200/_cat/health
+    
+staging:
+  stage: staging
+  tags: ["docker"]
+  image: alpine
+  before_script:
+    - apk add openssh-client
+    - eval $(ssh-agent -s)
+    - echo "$SSH_PRIVATE_KEY" | tr -d '\r' | ssh-add -
+    - mkdir -p ~/.ssh
+    - chmod 700 ~/.ssh
+  script:
+      - rsync -e "ssh -o StrictHostKeyChecking=no" -rltoDv --delete --force . root@$QA_SERVER:/root/recountanalitics
+      - ssh root@$QA_SERVER "cd /root/recountanalitics && docker-compose down && docker-compose up -d"
+  environment:     
+    name: staging
