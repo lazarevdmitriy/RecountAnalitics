@@ -1,5 +1,4 @@
 staging:
-  stage: staging
   tags: ["docker"]
   image: alpine
   before_script:
