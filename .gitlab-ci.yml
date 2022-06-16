@@ -2,7 +2,7 @@ stages:
   - test
   - staging
 
-build-image:
+composer-test:
   stage: test
   image: 
     name: linuxserver/docker-compose
@@ -11,7 +11,8 @@ build-image:
   before_script:
     - apt update && apt install gettext curl -y
   script:
-    - docker-compose up -d 
+    - docker-compose up -d
+    - sleep 30
     - curl http://localhost:9200/_cat/health
     
 staging:
