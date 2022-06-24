@@ -120,12 +120,9 @@ def fetch(query) :
 
 def insert(result, isManager, tag_id, word_id):
 
-    # print(f"result['hits']['total']['value']:  {result['hits']['total']['value']}")
-    # if result['hits']['total']['value']:
     x = 0
     for hit in result['hits']['hits']:
         x = x+1
-        # print(f"HIT: {hit}")
         interactionID = hit["_source"]['interactionID']
         interactionDate = datetime.strptime(hit["_source"]['@timestamp'], "%Y-%m-%dT%H:%M:%S")
         dataset_id = hit["_source"]['dataset_id']
@@ -134,8 +131,9 @@ def insert(result, isManager, tag_id, word_id):
 
         if dataset_id == None or dataset_id == 'None' or dataset_id == 0:
             dataset_id = 'NULL'
+
         print(f"{x}:\t {bcolors.OKGREEN}INSERTED: {interactionID}\t{interactionDate}\t{dataset_id}{bcolors.ENDC} ")
-        # print(f"{x}:\tINSERTED: {interactionID}\t{interactionDate}\t{dataset_id}")
+
         cursor.execute(add_tags % (interactionID,tag_id,counter,interactionDate,dataset_id,isManager))
         cursor.execute(add_words % (interactionID, word_id ,counter,interactionDate,dataset_id,isManager,word_count))
         mydb.commit()
@@ -171,9 +169,7 @@ def main():
     """
 
     scripts = fetch(get_scripts)
-    # {'id': 13, 'name': 'Упоминание каналов самообслуживания', 'dataset_id': 70, 'scriptType': 'strictScript', 'tag_id': 155, 'script_id': 13, 'isManager': 1}
     tags = fetch(get_tags)
-    # {'id': 1, 'name': 'WOW card', 'deleted': 1, 'emotion': 4, 'class_id': 1, 'dataset_id': 70, 'tagType': 'standardTag', 'search_channel': -1}
 
     for tag in tags:
         tag_id = tag['id']
@@ -192,7 +188,6 @@ def main():
             word_id = word['id']
             word_word = word['word']
 
-
             channel = tag['search_channel']; client = 0; operator = 1; no_matters = -1
             if channel == client or channel == no_matters:
                 # CLIENT(0); KQL (direction : in and srcAnnotation : "оператора")  or (direction : out and dstAnnotation :"оператора")
@@ -206,7 +201,6 @@ def main():
                 templete_script="search_in_operator_speech_dataset_default"
                 if dataset_id != None: templete_script="search_in_operator_speech_dataset_exists"
 
-
             _from = 0
             _size = 100
             params= {
@@ -217,47 +211,34 @@ def main():
                 "gte": from_date.isoformat(),
                 "lte": to_date.isoformat()
             }
-            # print(f'params {params}')
 
             # get 1st
             resp=es.search_template(index=elconfig['elastic_index'], id=templete_script, params=params)
-            # print(f'WORD: {word_word} 1st resp {resp}')
+
             # get total results count
             _total = resp['hits']['total']['value']
 
             # iterate throgh results
             steps = int(-1 * (_total / _size) // 1 * -1)
 
-            # print(f'WORD: {word_word} total results found {_total} size {_size} steps {steps}')
-
             # print(resp)
             if _total:
                 print(f"{bcolors.BOLD}\nSCRIPT: '{ script_name }'\tTAG: '{ tag['name'] }'\tWORD: '{ word['word'] }'\t MATCH: {_total} \t STEPS: {steps}\n {bcolors.ENDC}")
-            # print(resp['hits']['hits'])
-            # sprint(f"{bcolors.WARNING}Warning: No active frommets remain. Continue?{bcolors.ENDC}")
-
 
                 for x in range(0,steps):
-                    # print(f"x: {x} in steps {steps}\t FROM: {params['from']} size {_size} ")
                     # get search
-                    # print(f"params: {params}")
                     resp=es.search_template(index=elconfig['elastic_index'], id=templete_script, params=params)
 
                     # insert
-                    # print(f"INSERT WORD: {word_word}")
                     insert(resp, isManager, tag_id, word_id)
 
                     # increase from
                     _from = _from+_size
                     params["from"]= _from
 
-
-
-
-
-
     # insert scripts
     cursor.execute(add_scripts_hard % (from_date, to_date))
+
     # phone_cdr_temp
     cursor.callproc('add_data_phone_cdr_temp')
     mydb.commit()
@@ -292,10 +273,14 @@ def put_templates(es):
       with open("templates/%s.json" % tpl_name) as f:
         tpl = json.load(f)
         es.put_script(id=tpl_name, script=tpl['script'])
-        # print(es.get_script(id=tpl_name))
   except Exception as e:
     print(e)
     sys.exit()
+
+def clear_idx_docs_by_date(from_date, es, elconfig):
+
+    query = {'range': {'@timestamp': {'lte': from_date}}}
+    es.delete_by_query(index=elconfig['elastic_index'], query=query)
 
 if __name__ == '__main__':
 
@@ -361,6 +346,7 @@ if __name__ == '__main__':
         sys.exit()
 
     clear_by_date(from_date, to_date)
+    clear_idx_docs_by_date(from_date, es, elconfig)
     create_index(elconfig['elastic_index'])
     put_templates(es)
     load(elconfig['elastic_index'], mydb)
