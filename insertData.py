@@ -14,9 +14,12 @@ import sys, json, mysql.connector
 from elasticsearch import Elasticsearch
 from datetime import date, datetime, timedelta
 
-delete_script = "TRUNCATE TABLE interaction_scripts "
-delete_tags = "TRUNCATE TABLE interaction_tags"
-delete_words = "TRUNCATE TABLE interaction_words"
+delete_script = ("DELETE from interaction_scripts "
+    "WHERE interactionDate > '%s' and interactionDate < '%s'")
+delete_tags = ("DELETE from interaction_tags "
+    "WHERE interactionDate > '%s' and interactionDate < '%s'")
+delete_words = ("DELETE from interaction_words "
+    "WHERE interactionDate > '%s' and interactionDate < '%s'")
 
 get_scripts = """ SELECT pcs.id, pcs.name, pcs.dataset_id, pcs.scriptType, pcst.tag_id, pcst.script_id, pcst.isManager
     FROM phone_cdr_scripts pcs left join phone_cdr_script_tags pcst  on pcs.id  = pcst.script_id   """
@@ -323,29 +326,39 @@ if __name__ == '__main__':
 
     print(f"RECOUNT DAYS: \t{from_date}\t{to_date}")
 
-    mydb = mysql.connector.connect(
-        host=config['host'],
-        user=config['user'],
-        passwd=config['pass'],
-        db=config['base'],
-        charset='utf8',
-        collation='utf8_general_ci'
-    )
-    cursor = mydb.cursor(dictionary=True)
-    es = Elasticsearch(
-        elconfig['elastic_host'],
-        # if use passwords
-        # basic_auth=(
-        #   "elastic",
-        #   elconfig['elastic_password']
-        #   ),
-        # provide a path to CA certs on disk
-        # ca_certs="ca/ca.crt",
-        # no verify SSL certificates
-        # verify_certs=False,
-        # don't show warnings about ssl certs verification
-        # ssl_show_warn=False
-    )
+    try:
+        mydb = mysql.connector.connect(
+            host=config['host'],
+            user=config['user'],
+            passwd=config['pass'],
+            db=config['base'],
+            charset='utf8',
+            collation='utf8_general_ci'
+        )
+        cursor = mydb.cursor(dictionary=True)
+    except Exception as e:
+        print('Can not connect to mysql')
+        sys.exit()
+
+    try:
+        es = Elasticsearch(
+            elconfig['elastic_host'],
+            # if use passwords
+            # basic_auth=(
+            #   "elastic",
+            #   elconfig['elastic_password']
+            #   ),
+            # provide a path to CA certs on disk
+            # ca_certs="ca/ca.crt",
+            # no verify SSL certificates
+            # verify_certs=False,
+            # don't show warnings about ssl certs verification
+            # ssl_show_warn=False
+        )
+        es.cluster.health()
+    except Exception as e:
+        print('Can not connect to elastic')
+        sys.exit()
 
     clear_by_date(from_date, to_date)
     create_index(elconfig['elastic_index'])

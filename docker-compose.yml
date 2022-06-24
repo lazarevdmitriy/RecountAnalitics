@@ -12,6 +12,7 @@ services:
       - bootstrap.memory_lock=true
       - xpack.security.enabled=false
     mem_limit: 2g
+    restart: unless-stopped
     ulimits:
       memlock:
         soft: -1
@@ -33,6 +34,7 @@ services:
     volumes:
       - kibanadata:/usr/share/kibana/data
     mem_limit: 1g
+    restart: unless-stopped
     ports:
       - 5601:5601
 
