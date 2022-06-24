@@ -2,3 +2,6 @@ esdata/
 env/
 stuff/
 ca/
+
+.vscode
+*.sqlite
