@@ -7,11 +7,11 @@ services:
     container_name: elasticsearch
     environment:
       - discovery.type=single-node
-      - 'ES_JAVA_OPTS=-Xms1g -Xmx1g'
+      - 'ES_JAVA_OPTS=-Xms4g -Xmx4g'
       - network.host=0.0.0.0
       - bootstrap.memory_lock=true
       - xpack.security.enabled=false
-    mem_limit: 2g
+    mem_limit: 8g
     restart: unless-stopped
     ulimits:
       memlock:
