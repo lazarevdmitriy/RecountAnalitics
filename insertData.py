@@ -321,9 +321,11 @@ if __name__ == '__main__':
     index  = elconfig['elastic_index']
     host  = elconfig['elastic_host']
     size = 100
-    
+
+    # !!! run only once, then keep data in the tables
     print(f'Delete mysql records from {from_date} - {to_date} ...')
     clear_by_date(cursor, mydb, from_date, to_date)
+
     print(f'Delete elastic documents from {from_date} - {to_date} ...')
     clear_idx_docs_by_date(es, index, start_load)
     create_index(es, index)
