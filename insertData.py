@@ -11,7 +11,6 @@
 # python3 -m pip install mysql-connector elasticsearch python-dateutil
 
 import sys, json, mysql.connector, requests
-from textwrap import indent
 from elasticsearch import Elasticsearch
 from datetime import date, datetime, timedelta
 
@@ -137,7 +136,7 @@ def load(es, index, cursor, start_load, to_date):
             print(resp['result'], row['interactionID'], row['@timestamp'])
         row = cursor.fetchone()
 
-def create_index(es, index, mappings):
+def create_index(es, index):
     '''Create elasticsearch index'''
 
     mappings = {
@@ -173,14 +172,19 @@ def put_templates(es, templates):
 def clear_idx_docs_by_date(es, index, start_load):
     '''Clears the elastic index docs earlier than from_date'''
     
-    query = {'range': {'@timestamp': {'lte': start_load}}}
-    es.delete_by_query(index=index, query=query)
+    try:
+        query = {'range': {'@timestamp': {'lte': start_load}}}
+        result = es.delete_by_query(index=index, query=query)
+        query = {'range': {'@timestamp': {'lte': start_load}}}
+        print(f"Deleted {result['deleted']} records from {index}")
+    except Exception as e:
+        print(result, e)
 
 def elastic_search(query, sort, source):
     
     # get pit
     pit = requests.post(f'{host}/{index}/_pit?keep_alive=1m').json()
-    total = es.count(index=index, body={'query': query })["count"]
+    total = es.count(index=index, query=query)["count"]
     
     # первый запрос
     result = es.search(size=size, query=query, pit=pit, sort=sort, source=source)
@@ -314,22 +318,24 @@ if __name__ == '__main__':
         Examle: ./insertData.py '2022-06-01' '2022-07-01'")
       sys.exit()
 
-    mappings = "templates/mappings.json"
     index  = elconfig['elastic_index']
     host  = elconfig['elastic_host']
     size = 100
- 
+    
+    print(f'Delete mysql records from {from_date} - {to_date} ...')
     clear_by_date(cursor, mydb, from_date, to_date)
+    print(f'Delete elastic documents from {from_date} - {to_date} ...')
     clear_idx_docs_by_date(es, index, start_load)
-    create_index(es, index, mappings)
+    create_index(es, index)
 
-    print(f"LOAD DAYS: \t{start_load}\t{to_date}\n")
+    print(f'Load mysql data to elastic from {from_date} - {to_date} ...')
     load(es, index, cursor, start_load, to_date)
 
-    print(f"RECOUNT DAYS: \t{from_date}\t{to_date}")
+    print(f'Recount analitics from {from_date} - {to_date} ...')
     main(cursor, es, size)
 
     mydb.commit()
     cursor.close()
     mydb.close()
     print('OK')
+    
