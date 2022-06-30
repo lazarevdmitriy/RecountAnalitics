@@ -19,7 +19,7 @@ delete_tags = """DELETE from interaction_tags WHERE interactionDate > '%s' and i
 delete_words = """DELETE from interaction_words WHERE interactionDate > '%s' and interactionDate < '%s'"""
 
 get_scripts = """SELECT pcs.id, pcs.name, pcs.dataset_id, pcs.scriptType, pcst.tag_id, pcst.script_id, pcst.isManager
-FROM voicetech_uat.phone_cdr_scripts pcs left join voicetech_uat.phone_cdr_script_tags pcst
+FROM phone_cdr_scripts pcs left join phone_cdr_script_tags pcst
 on pcs.id  = pcst.script_id order by dataset_id, name"""
 
 get_tags = """SELECT * FROM phone_cdr_tags WHERE NOT deleted order by dataset_id, name"""
@@ -323,8 +323,8 @@ if __name__ == '__main__':
     size = 100
 
     # !!! run only once, then keep data in the tables
-    print(f'Delete mysql records from {from_date} - {to_date} ...')
-    clear_by_date(cursor, mydb, from_date, to_date)
+    # print(f'Delete mysql records from {from_date} - {to_date} ...')
+    # clear_by_date(cursor, mydb, from_date, to_date)
 
     print(f'Delete elastic documents from {from_date} - {to_date} ...')
     clear_idx_docs_by_date(es, index, start_load)
