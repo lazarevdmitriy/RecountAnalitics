@@ -8,7 +8,7 @@ staging:
     - mkdir -p ~/.ssh
     - chmod 700 ~/.ssh
   script:
-      - rsync -e "ssh -o StrictHostKeyChecking=no" -rltoDv --delete --force . root@$QA_SERVER:/root/recountanalitics
-      - ssh -o StrictHostKeyChecking=no root@$QA_SERVER "cd /root/recountanalitics && docker-compose down && docker-compose up -d"
+      - rsync -e "ssh -o StrictHostKeyChecking=no" -rltoDv --delete --force . root@$QA_SERVER:/srv/recountanalitics
+      - ssh -o StrictHostKeyChecking=no root@$QA_SERVER "cd /srv/recountanalitics && docker-compose down && docker-compose up -d"
   environment:     
     name: staging
