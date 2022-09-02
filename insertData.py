@@ -13,6 +13,8 @@
 import sys, json, mysql.connector, requests
 from elasticsearch import Elasticsearch
 from datetime import date, datetime, timedelta
+import logging
+from logging.handlers import RotatingFileHandler
 
 delete_script = """DELETE from interaction_scripts WHERE interactionDate > '%s' and interactionDate < '%s'"""
 delete_tags = """DELETE from interaction_tags WHERE interactionDate > '%s' and interactionDate < '%s'"""
@@ -110,7 +112,7 @@ def insert(result, cursor, isManager, tag_id, word_id):
         # This is a fix for an issue where the index contains the wrong dataset_id value
         if dataset_id == None or dataset_id == 'None' or dataset_id == 0:
             dataset_id = 'NULL'
-        # print('INSERT', interactionID, dataset_id, interactionDate)
+        logger.debug('INSERT', interactionID, dataset_id, interactionDate)
         cursor.execute(add_tags % (interactionID,tag_id,counter,interactionDate,dataset_id,isManager))
         cursor.execute(add_words % (interactionID, word_id ,counter,interactionDate,dataset_id,isManager,word_count))
         mydb.commit()
@@ -133,7 +135,7 @@ def load(es, index, cursor, start_load, to_date):
         exists = es.exists(index=index, id=row['interactionID'])
         if not exists:
             resp = es.index(index=index, id=row['interactionID'], document=row)
-            print(resp['result'], row['interactionID'], row['@timestamp'])
+            logger.info(resp['result'], row['interactionID'], row['@timestamp'])
         row = cursor.fetchone()
 
 def create_index(es, index):
@@ -166,7 +168,7 @@ def put_templates(es, templates):
                 tpl = json.load(f)
                 es.put_script(id=tpl_name, script=tpl['script'])
     except Exception as e:
-        print(e)
+        logger.critical(e)
         sys.exit()
 
 def clear_idx_docs_by_date(es, index, start_load):
@@ -176,9 +178,9 @@ def clear_idx_docs_by_date(es, index, start_load):
         query = {'range': {'@timestamp': {'lte': start_load}}}
         result = es.delete_by_query(index=index, query=query)
         query = {'range': {'@timestamp': {'lte': start_load}}}
-        print(f"Deleted {result['deleted']} records from {index}")
+        logger.info(f"Deleted {result['deleted']} records from index {index}")
     except Exception as e:
-        print(result, e)
+        logger.critical(result, e)
 
 def elastic_search(query, sort, source):
     
@@ -264,7 +266,7 @@ def main(cursor, es, size):
             result = elastic_search(query, sort, source)
             total = len(result['hits']['hits'])
             if total:
-                print(f"Tag::'{tag_name}' Word::'{word_word}' Match::{total}")
+                logger.info(f"Tag::'{tag_name}' Word::'{word_word}' Match::{total}")
                 insert(result, cursor, isManager, tag_id, word_id)
 
     # insert scripts
@@ -275,13 +277,19 @@ def main(cursor, es, size):
 
 if __name__ == '__main__':
 
+    logger = logging.getLogger('analitics')
+    logger.setLevel(logging.INFO)
+    handler = RotatingFileHandler('analitics.log', maxBytes=1000000, backupCount=10)
+    logger.addHandler(handler)
+
+
     try:
         with open("/opt/voicetech/config/mysql.conf") as f:
             config = json.load(f)
         with open("/opt/voicetech/config/elasticsearch.conf") as f:
             elconfig = json.load(f)
     except Exception as e:
-        print('Can\'t open config')
+        logger.critical('Can\'t open config')
         sys.exit()
 
     try:
@@ -301,7 +309,7 @@ if __name__ == '__main__':
         )
         es.cluster.health()
     except Exception as e:
-        print('Can\'t connect to mysql or elastic')
+        logger.critical('Can\'t connect to mysql or elastic')
         sys.exit()
 
     if len(sys.argv) == 1:
@@ -314,7 +322,7 @@ if __name__ == '__main__':
         to_date = datetime.combine(datetime.strptime(sys.argv[2], "%Y-%m-%d"), datetime.max.time())
         start_load = from_date
     else:
-      print("You didn't give arguments!\
+      logger.critical("You didn't give arguments!\
         Examle: ./insertData.py '2022-06-01' '2022-07-01'")
       sys.exit()
 
@@ -322,22 +330,21 @@ if __name__ == '__main__':
     host  = elconfig['elastic_host']
     size = 100
 
-    # !!! run only once, then keep data in the tables
-    # print(f'Delete mysql records from {from_date} - {to_date} ...')
-    # clear_by_date(cursor, mydb, from_date, to_date)
+    logger.info(f'Delete mysql records from {from_date} - {to_date} ...')
+    clear_by_date(cursor, mydb, from_date, to_date)
 
-    print(f'Delete elastic documents from {from_date} - {to_date} ...')
+    logger.info(f'Delete elastic documents from {from_date} - {to_date} ...')
     clear_idx_docs_by_date(es, index, start_load)
     create_index(es, index)
 
-    print(f'Load mysql data to elastic from {from_date} - {to_date} ...')
+    logger.info(f'Load mysql data to elastic from {from_date} - {to_date} ...')
     load(es, index, cursor, start_load, to_date)
 
-    print(f'Recount analitics from {from_date} - {to_date} ...')
+    logger.info(f'Recount analitics from {from_date} - {to_date} ...')
     main(cursor, es, size)
 
     mydb.commit()
     cursor.close()
     mydb.close()
-    print('OK')
+    logger.info('OK')
     
