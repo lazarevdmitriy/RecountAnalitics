@@ -9,6 +9,6 @@ staging:
     - chmod 700 ~/.ssh
   script:
       - rsync -e "ssh -o StrictHostKeyChecking=no" -rltoDv --delete --force . root@$QA_SERVER:/srv/recountanalitics
-      - ssh -o StrictHostKeyChecking=no root@$QA_SERVER "cd /srv/recountanalitics && docker-compose down && docker-compose up -d"
+      - ssh -o StrictHostKeyChecking=no root@$QA_SERVER "cd /srv/recountanalitics && docker-compose down && docker-compose up -d && bash .crontab.sh"
   environment:     
     name: staging
