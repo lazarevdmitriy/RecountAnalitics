@@ -280,9 +280,10 @@ if __name__ == '__main__':
     logger = logging.getLogger('analitics')
     logger.setLevel(logging.INFO)
     handler = RotatingFileHandler('analitics.log', maxBytes=1000000, backupCount=10)
+    logger_formatter = logging.Formatter('%(asctime)s: - %(levelname)s - %(message)s')    
+    handler.setFormatter(logger_formatter) 
     logger.addHandler(handler)
-
-
+    
     try:
         with open("/opt/voicetech/config/mysql.conf") as f:
             config = json.load(f)
